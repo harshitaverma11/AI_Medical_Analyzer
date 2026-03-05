@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Medical Image Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='medical_style.css') }}" />
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="card">
+        <div class="header">
+          <div class="title-block">
+            <h1>AI Medical Image Analyzer</h1>
+            <p>Upload medical images for AI-powered analysis and insights.</p>
+          </div>
+          <div class="badge">Medical AI</div>
+        </div>
+
+        <div class="upload-section">
+          <div class="upload-area" id="upload-area">
+            <input
+              type="file"
+              id="image-input"
+              accept="image/*"
+              style="display: none"
+            />
+            <div class="upload-content">
+              <svg
+                class="upload-icon"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                ></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p class="upload-text">
+                <strong>Click to upload</strong> or drag and drop
+              </p>
+              <p class="upload-hint">
+                PNG, JPG, JPEG, GIF, BMP, WEBP (Max 16MB)
+              </p>
+            </div>
+          </div>
+
+          <div class="image-preview" id="image-preview" style="display: none">
+            <img id="preview-img" src="" alt="Preview" />
+            <button type="button" class="remove-image" id="remove-image">
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="clear-button" class="clear-btn">
+            Clear
+          </button>
+          <button type="button" id="analyze-button" disabled>
+            <span class="dot"></span>
+            Analyze Image
+          </button>
+        </div>
+
+        <div class="analysis-section" id="analysis-section" style="display: none">
+          <div class="analysis-header">
+            <div class="analysis-title">
+              <span class="analysis-dot"></span>
+              <span>Analysis Results</span>
+            </div>
+          </div>
+          <div id="analysis-content" class="analysis-content"></div>
+          <div id="status" class="status"></div>
+        </div>
+
+        <div class="disclaimer">
+          <strong>⚠️ Medical Disclaimer:</strong> This AI analysis is for
+          informational purposes only and is not a substitute for professional
+          medical diagnosis, treatment, or advice. Always consult qualified
+          healthcare providers for medical decisions.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const uploadArea = document.getElementById("upload-area");
+      const imageInput = document.getElementById("image-input");
+      const imagePreview = document.getElementById("image-preview");
+      const previewImg = document.getElementById("preview-img");
+      const removeImageBtn = document.getElementById("remove-image");
+      const analyzeButton = document.getElementById("analyze-button");
+      const clearButton = document.getElementById("clear-button");
+      const analysisSection = document.getElementById("analysis-section");
+      const analysisContent = document.getElementById("analysis-content");
+      const statusEl = document.getElementById("status");
+
+      let selectedFile = null;
+
+      // Upload area click
+      uploadArea.addEventListener("click", () => {
+        imageInput.click();
+      });
+
+      // Drag and drop
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("drag-over");
+      });
+
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("drag-over");
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("drag-over");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      // File input change
+      imageInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+
+      // Handle file selection
+      function handleFile(file) {
+        if (!file.type.startsWith("image/")) {
+          showError("Please select an image file.");
+          return;
+        }
+
+        if (file.size > 16 * 1024 * 1024) {
+          showError("File size must be less than 16MB.");
+          return;
+        }
+
+        selectedFile = file;
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+          previewImg.src = e.target.result;
+          uploadArea.style.display = "none";
+          imagePreview.style.display = "block";
+          analyzeButton.disabled = false;
+          analysisSection.style.display = "none";
+        };
+
+        reader.readAsDataURL(file);
+      }
+
+      // Remove image
+      removeImageBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        clearAll();
+      });
+
+      // Clear all
+      function clearAll() {
+        selectedFile = null;
+        imageInput.value = "";
+        uploadArea.style.display = "block";
+        imagePreview.style.display = "none";
+        analyzeButton.disabled = true;
+        analysisSection.style.display = "none";
+        statusEl.textContent = "";
+        statusEl.classList.remove("error");
+      }
+
+      clearButton.addEventListener("click", clearAll);
+
+      // Analyze image
+      analyzeButton.addEventListener("click", async () => {
+        if (!selectedFile) {
+          showError("Please select an image first.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", selectedFile);
+
+        analyzeButton.disabled = true;
+        analyzeButton.innerHTML = '<span class="dot"></span>Analyzing...';
+        statusEl.textContent = "Processing image with AI...";
+        statusEl.classList.remove("error");
+        analysisSection.style.display = "block";
+        analysisContent.innerHTML = '<div class="loading">Analyzing medical image...</div>';
+
+        try {
+          const response = await fetch("/api/analyze", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Analysis failed");
+          }
+
+          // Format analysis text with line breaks
+          const formattedAnalysis = data.analysis
+            .split("\n")
+            .map((line) => {
+              if (line.trim() === "") return "<br>";
+              if (line.match(/^\d+\./)) {
+                return `<p class="analysis-point"><strong>${line}</strong></p>`;
+              }
+              if (line.startsWith("#") || line.toUpperCase() === line && line.length < 50) {
+                return `<h3 class="analysis-heading">${line}</h3>`;
+              }
+              return `<p>${line}</p>`;
+            })
+            .join("");
+
+          analysisContent.innerHTML = formattedAnalysis;
+          statusEl.textContent = "Analysis complete.";
+        } catch (error) {
+          analysisContent.innerHTML = `<p class="error-text">Error: ${error.message}</p>`;
+          statusEl.textContent = "Analysis failed.";
+          statusEl.classList.add("error");
+        } finally {
+          analyzeButton.disabled = false;
+          analyzeButton.innerHTML = '<span class="dot"></span>Analyze Image';
+        }
+      });
+
+      function showError(message) {
+        statusEl.textContent = message;
+        statusEl.classList.add("error");
+        setTimeout(() => {
+          statusEl.textContent = "";
+          statusEl.classList.remove("error");
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>
